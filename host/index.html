@@ -319,7 +319,7 @@ function renderBoard() {
 
   $("bname").textContent = who ? who.avatar + " " + who.nickname : "";
   const hp = who ? Math.max(who.egg_hp ?? 0, 0) : 0;
-  const src = `../assets/eggsimg/egg_${stage(hp)}.PNG`;
+  const src = `../assets/eggsimg/egg_${stage(hp)}.png`;
   if (!$("begg").src.endsWith(src.slice(2))) $("begg").src = src;
   $("bhp").textContent = who ? hp + " HP" : "";
   icons($("btool"), tool, outcome);
