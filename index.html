@@ -83,7 +83,7 @@ function render() {
   if (me.status === "lobby") return say(game.phase === "reveal" ? "Get ready…" : "Waiting for the host to start…");
 
   const hp = Math.max(me.egg_hp ?? 0, 0);
-  const src = `assets/eggsimg/egg_${stage(hp)}.PNG`;
+  const src = `assets/eggsimg/egg_${stage(hp)}.png`;
   if (!$("egg").src.endsWith(src)) $("egg").src = src;
   $("hp").textContent = hp + " HP";
 
