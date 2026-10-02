@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CrackTheEgg Host</title>
+<style>
+  :root { --stout:#16110d; --foam:#f3ead8; --shell:#d9b382; --amber:#f2a51a; --dim:#3a2f26; --red:#ff8a70; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; min-height:100%; background:var(--stout); color:var(--foam);
+    font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,sans-serif; font-size:clamp(16px,1.5vw,26px); }
+  body { padding:2vw; }
+  [hidden] { display:none !important; }
+  h1 { font-size:2.2em; margin:0 0 .4em; } h2 { font-size:1.3em; margin:1em 0 .4em; color:var(--shell); }
+  button { font:inherit; font-weight:700; border:0; border-radius:.7em; padding:.6em 1.1em; cursor:pointer; background:var(--dim); color:var(--foam); }
+  button.primary { background:var(--amber); color:var(--stout); }
+  button:disabled { opacity:.35; cursor:default; }
+  button:focus-visible, input:focus-visible { outline:3px solid var(--foam); outline-offset:2px; }
+  .err { color:var(--red); min-height:1.3em; margin:.4em 0 0; }
+
+  #pin { max-width:20em; margin:15vh auto; text-align:center; }
+  #pinin { font:inherit; font-size:1.4em; width:100%; padding:.5em; text-align:center; border-radius:.5em; border:2px solid var(--dim); background:transparent; color:var(--foam); margin-bottom:.6em; }
+
+  #lobby { display:grid; grid-template-columns:1fr 1.2fr; gap:3vw; }
+  #qr { background:var(--foam); padding:14px; display:inline-block; border-radius:12px; }
+  #url { word-break:break-all; opacity:.6; font-size:.7em; max-width:22em; }
+  #players { list-style:none; padding:0; margin:0; display:flex; flex-wrap:wrap; gap:.5em; }
+  #players li { display:flex; align-items:center; gap:.4em; background:var(--dim); padding:.3em .3em .3em .7em; border-radius:2em; }
+  #players li b { font-weight:600; } #players li button { padding:.1em .5em; border-radius:2em; background:transparent; opacity:.5; }
+  .seg { display:flex; gap:.5em; } .seg button[aria-pressed="true"] { background:var(--amber); color:var(--stout); }
+  .row { display:grid; grid-template-columns:7em 1fr 14em; align-items:center; gap:1em; margin:.55em 0; }
+  .row small { opacity:.65; } input[type=range] { width:100%; accent-color:var(--amber); }
+  #est { font-size:1.3em; margin:.8em 0; color:var(--shell); }
+  .actions { display:flex; gap:1em; align-items:center; }
+
+  #reveal { max-width:60em; margin:0 auto; }
+  .bar { display:flex; height:2.2em; border-radius:.6em; overflow:hidden; margin:.4em 0 1em; font-weight:700; color:var(--stout); }
+  .bar div { display:flex; align-items:center; justify-content:center; white-space:nowrap; }
+  .hammer { background:var(--shell); } .beer { background:var(--amber); } .hit { background:#9ccc65; } .miss { background:#c9b9a3; } .crit { background:var(--red); }
+  .fx { display:grid; grid-template-columns:repeat(3,1fr); gap:1em; margin-bottom:1em; opacity:.8; }
+  #order { display:flex; flex-wrap:wrap; gap:.5em; padding:0; list-style:none; } #order li { background:var(--dim); padding:.3em .8em; border-radius:2em; }
+
+  #win { text-align:center; background:var(--dim); border-radius:1em; padding:.6em; margin-bottom:1.5vw; }
+  #win h1 { margin:.2em 0; }
+  #board { display:grid; grid-template-columns:1fr 1.25fr; gap:3vw; align-items:start; }
+  #bname { text-align:center; } #eggrow { display:flex; align-items:center; justify-content:center; gap:3vw; }
+  #eggrow > div { text-align:center; } #begg { max-height:38vh; max-width:22vw; } #bfb { font-size:8em; } #bhp { font-size:1.4em; color:var(--shell); }
+  #btool { display:flex; flex-direction:column; align-items:center; gap:.2em; } #btool .ic { font-size:3.6em; }
+  .stats { display:grid; grid-template-columns:auto auto; gap:.3em 2em; justify-content:center; margin-top:1.2em; } .stats span { opacity:.7; }
+  #rCount { display:block; text-align:center; opacity:.5; margin-top:.5em; }
+  table { width:100%; border-collapse:collapse; } th, td { padding:.45em .6em; border:1px solid var(--dim); text-align:center; }
+  th { color:var(--shell); } td:first-child { text-align:left; } tr.hl td { background:#4a3722; }
+  .ic { display:inline-block; margin:0 .1em; }
+  .o-hit { color:#7ddc6a; font-weight:900; } .o-crit { color:#ff4d3d; }
+  .ic.o-miss { background:#f2d21b; color:var(--stout); border-radius:50%; width:1.15em; height:1.15em; line-height:1.15em; text-align:center; font-size:.95em; font-weight:900; }
+  .lists { display:grid; grid-template-columns:1fr 1fr; gap:2vw; } .lists ul { list-style:none; padding:0; margin:0; line-height:1.7; }
+  #skip { margin-top:1em; opacity:.6; }
+</style>
+</head>
+<body>
+
+<section id="pin">
+  <h1>CrackTheEgg</h1>
+  <input id="pinin" type="password" inputmode="numeric" placeholder="Host PIN" aria-label="Host PIN" autocomplete="off">
+  <button id="unlock" class="primary">Unlock</button>
+  <p id="pinerr" class="err" role="alert"></p>
+</section>
+
+<section id="lobby" hidden>
+  <div>
+    <h1>Scan to join</h1>
+    <div id="qr"></div>
+    <p id="url"></p>
+    <h2>Players <span id="count"></span></h2>
+    <ul id="players"></ul>
+  </div>
+  <div>
+    <h1>Setup</h1>
+    <div class="seg" id="mode" role="group" aria-label="Game mode">
+      <button data-v="selfd" aria-pressed="false">Self Destruction</button>
+      <button data-v="nextp" aria-pressed="true">Next, Please</button>
+    </div>
+    <div class="row"><label for="beer">Beer</label><input id="beer" type="range" min="10" max="50"><small id="beerT"></small></div>
+    <div class="row"><label for="miss">Miss</label><input id="miss" type="range" min="10" max="25"><small id="missT"></small></div>
+    <div class="row"><label for="crit">Crit</label><input id="crit" type="range" min="10" max="25"><small id="critT"></small></div>
+    <div class="row"><label for="hp">Egg HP</label><input id="hp" type="range" min="6" max="10"><small id="hpT"></small></div>
+    <p id="est"></p>
+    <div class="actions">
+      <button id="rand">Random!</button>
+      <button id="start" class="primary">Start!</button>
+    </div>
+    <p id="lerr" class="err" role="alert"></p>
+  </div>
+</section>
+
+<section id="reveal" hidden>
+  <h1>The odds</h1>
+  <h2>Roll 1: what do you get?</h2>
+  <div class="bar" id="bar1"></div>
+  <h2>Roll 2: how does it go?</h2>
+  <div class="bar" id="bar2"></div>
+  <div class="fx"><div>Hit: hammer −1 HP, beer 1 cup</div><div>Miss: nothing happens</div><div>Crit: hammer −2 HP, beer 2 cups</div></div>
+  <p id="rinfo"></p>
+  <h2>Playing order</h2>
+  <ol id="order"></ol>
+  <p><button id="cont" class="primary">Continue</button> <span id="count2"></span></p>
+  <p id="rerr" class="err" role="alert"></p>
+</section>
+
+<section id="running" hidden>
+  <div id="win" hidden><h1>🏆 <span id="winname"></span> wins!</h1><button id="again" class="primary">Play again</button></div>
+  <div id="board">
+    <div>
+      <h1 id="bname"></h1>
+      <div id="eggrow">
+        <div><img id="begg" alt="Egg"><span id="bfb" hidden>🥚</span><div id="bhp"></div></div>
+        <div id="btool"></div>
+      </div>
+      <div class="stats">
+        <span>Game mode</span><b id="bmode"></b>
+        <span>Beer rate</span><b id="rBeer"></b>
+        <span>Miss rate</span><b id="rMiss"></b>
+        <span>Crit rate</span><b id="rCrit"></b>
+      </div>
+      <small id="rCount"></small>
+    </div>
+    <div>
+      <table><thead><tr id="thr"></tr></thead><tbody id="tbody"></tbody></table>
+      <div class="lists">
+        <div><h2>🪦 Graveyard</h2><ul id="grave"></ul></div>
+        <div><h2>Spectators</h2><ul id="spec"></ul></div>
+      </div>
+      <button id="skip">Skip turn</button>
+    </div>
+  </div>
+</section>
+
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const MODES = { selfd: "Self Destruction", nextp: "Next, Please" };
+let db, pin = sessionStorage.getItem("cte_pin"), game = null, players = [], formReady = false, qrFor = null, revealTimer = null, saveT = null;
+
+const scenes = ["pin", "lobby", "reveal", "running"];
+const show = id => scenes.forEach(s => $(s).hidden = s !== id);
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+
+/* ---------- PIN and game ---------- */
+async function unlock(p) {
+  const r = await db.rpc("verify_pin", { p_pin: p });
+  if (r.error || !r.data) { $("pinerr").textContent = r.error ? r.error.message : "Wrong PIN"; return false; }
+  pin = p; sessionStorage.setItem("cte_pin", p);
+  await enter(); return true;
+}
+async function enter() {
+  let gid = localStorage.getItem("cte_host_game");
+  if (gid) { const g = await db.from("games").select("id").eq("id", gid).maybeSingle(); if (!g.data) gid = null; }
+  if (!gid) {
+    const r = await db.rpc("create_game", { p_pin: pin });
+    if (r.error) { show("pin"); $("pinerr").textContent = r.error.message; return; }
+    gid = r.data; localStorage.setItem("cte_host_game", gid);
+  }
+  game = { id: gid };
+  db.channel("host-" + gid)
+    .on("postgres_changes", { event: "*", schema: "public", table: "games", filter: `id=eq.${gid}` }, load)
+    .on("postgres_changes", { event: "*", schema: "public", table: "players", filter: `game_id=eq.${gid}` }, load)
+    .subscribe();
+  setInterval(load, 5000);
+  load();
+}
+let rolls = [];
+async function load() {
+  const [g, p, r] = await Promise.all([
+    db.from("games").select("*").eq("id", game.id).single(),
+    db.from("players").select("*").eq("game_id", game.id).order("joined_at"),
+    db.from("rolls").select("*").eq("game_id", game.id).order("id"),
+  ]);
+  if (g.data) game = g.data; players = p.data || []; rolls = r.data || [];
+  render();
+}
+
+/* ---------- Rendering ---------- */
+function render() {
+  if (game.phase !== "reveal" && revealTimer) { clearInterval(revealTimer); revealTimer = null; }
+  if (game.phase !== "lobby") formReady = false;
+  if (game.phase === "lobby") return renderLobby();
+  if (game.phase === "reveal") return renderReveal();
+  renderBoard();
+}
+
+function renderLobby() {
+  show("lobby");
+  if (qrFor !== game.id) {
+    const url = new URL("../?game=" + game.id, location.href).href;
+    $("qr").innerHTML = ""; $("url").textContent = url;
+    new QRCode($("qr"), { text: url, width: 260, height: 260, colorDark: "#16110d", colorLight: "#f3ead8" });
+    qrFor = game.id;
+  }
+  if (!formReady) { setForm({ mode: game.gamemode, beer: game.beer_rate, miss: game.miss_rate, crit: game.crit_rate, hp: game.start_hp }); formReady = true; }
+
+  const list = $("players"); list.innerHTML = "";
+  players.forEach(p => {
+    const li = document.createElement("li"), a = document.createElement("span"), n = document.createElement("b"), x = document.createElement("button");
+    a.textContent = p.avatar; n.textContent = p.nickname; x.textContent = "✕"; x.setAttribute("aria-label", "Remove " + p.nickname);
+    x.onclick = () => db.rpc("kick_player", { p_pin: pin, p_player_id: p.id });
+    li.append(a, n, x); list.append(li);
+  });
+  const n = players.filter(p => p.status === "lobby").length;
+  $("count").textContent = "(" + n + ")";
+  $("start").disabled = n < 2;
+  updateDerived();
+}
+
+/* ---------- Setup form ---------- */
+const getForm = () => ({ mode: document.querySelector("#mode [aria-pressed=true]").dataset.v,
+  beer: +$("beer").value, miss: +$("miss").value, crit: +$("crit").value, hp: +$("hp").value });
+function setForm(v) {
+  document.querySelectorAll("#mode button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v.mode)));
+  ["beer", "miss", "crit", "hp"].forEach(k => $(k).value = v[k]);
+  updateDerived();
+}
+function updateDerived() {
+  const v = getForm(), n = players.filter(p => p.status === "lobby").length;
+  $("beerT").textContent = `Beer ${v.beer}% · Hammer ${100 - v.beer}%`;
+  $("missT").textContent = `Miss ${v.miss}%`;
+  $("critT").textContent = `Crit ${v.crit}% · Hit ${100 - v.miss - v.crit}%`;
+  $("hpT").textContent = `${v.hp} HP per egg`;
+  if (n < 2) { $("est").textContent = "Waiting for at least 2 players…"; return; }
+  // expected HP lost per turn, about 20 seconds per turn
+  const perTurn = (1 - v.beer / 100) * ((1 - v.miss / 100 - v.crit / 100) + 2 * v.crit / 100);
+  $("est").textContent = `About ${Math.round((n - 1) * v.hp / perTurn * 20 / 60)} min with ${n} players`;
+}
+function saveSoon() { clearTimeout(saveT); saveT = setTimeout(saveNow, 300); }
+async function saveNow() {
+  const v = getForm();
+  const r = await db.rpc("save_settings", { p_pin: pin, p_game_id: game.id, p_gamemode: v.mode,
+    p_beer: v.beer, p_miss: v.miss, p_crit: v.crit, p_start_hp: v.hp });
+  $("lerr").textContent = r.error ? r.error.message : "";
+  return !r.error;
+}
+["beer", "miss", "crit", "hp"].forEach(k => $(k).oninput = () => { updateDerived(); saveSoon(); });
+document.querySelectorAll("#mode button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#mode button").forEach(c => c.setAttribute("aria-pressed", String(c === b))); saveSoon();
+});
+$("rand").onclick = () => {
+  setForm({ mode: Math.random() < .5 ? "selfd" : "nextp", beer: rnd(10, 50), miss: rnd(10, 25), crit: rnd(10, 25), hp: rnd(6, 10) });
+  saveSoon();
+};
+$("start").onclick = async () => {
+  clearTimeout(saveT);
+  if (!(await saveNow())) return;
+  const r = await db.rpc("start_game", { p_pin: pin, p_game_id: game.id });
+  if (r.error) $("lerr").textContent = r.error.message;
+};
+
+/* ---------- Reveal ---------- */
+function bar(el, parts) {
+  el.innerHTML = "";
+  parts.forEach(([cls, label, pct]) => { const d = document.createElement("div"); d.className = cls; d.style.width = pct + "%"; d.textContent = label + " " + pct + "%"; el.append(d); });
+}
+function renderReveal() {
+  show("reveal");
+  bar($("bar1"), [["hammer", "Hammer", game.hammer_rate], ["beer", "Beer", game.beer_rate]]);
+  bar($("bar2"), [["hit", "Hit", game.hit_rate], ["miss", "Miss", game.miss_rate], ["crit", "Crit", game.crit_rate]]);
+  $("rinfo").textContent = `${MODES[game.gamemode]} · every egg starts with ${game.start_hp} HP`;
+  const ol = $("order"); ol.innerHTML = "";
+  players.filter(p => p.status === "alive").sort((a, b) => a.turn_pos - b.turn_pos).forEach(p => {
+    const li = document.createElement("li"); li.textContent = `#${p.turn_pos} ${p.avatar} ${p.nickname}`; ol.append(li);
+  });
+  if (!revealTimer) {
+    let left = 15; $("count2").textContent = `Starting in ${left}s`;
+    revealTimer = setInterval(() => {
+      left--; $("count2").textContent = `Starting in ${left}s`;
+      if (left <= 0) go();
+    }, 1000);
+  }
+}
+async function go() {
+  clearInterval(revealTimer); revealTimer = null;
+  const r = await db.rpc("begin_play", { p_pin: pin, p_game_id: game.id });
+  if (r.error) $("rerr").textContent = r.error.message;
+}
+$("cont").onclick = go;
+
+/* ---------- Board, dashboard, winner ---------- */
+const stage = hp => hp > 5 ? 0 : hp > 3 ? 1 : hp > 1 ? 2 : hp === 1 ? 3 : 4;
+const TOOL = { hammer: "🔨", beer: "🍺" };
+const SYMBOL = { hit: "✓", miss: "✕", crit: "▲" };
+function ic(text, cls) { const s = document.createElement("span"); s.className = "ic " + (cls || ""); s.textContent = text; return s; }
+function icons(el, tool, outcome) {
+  el.replaceChildren();
+  if (tool) el.append(ic(TOOL[tool]));
+  if (outcome) el.append(ic(SYMBOL[outcome], "o-" + outcome));
+}
+function nameList(el, list, prefix) {
+  el.replaceChildren();
+  list.forEach(p => { const li = document.createElement("li"); li.textContent = prefix + p.nickname; el.append(li); });
+}
+
+function renderBoard() {
+  show("running");
+  const finished = game.phase === "finished";
+  const alive = players.filter(p => p.status === "alive").sort((a, b) => a.turn_pos - b.turn_pos);
+  const last = rolls[rolls.length - 1];
+  const turnP = alive.find(p => p.turn_pos === game.turn_pos);
+
+  // Who is on the left panel: the winner, the player mid-turn, or whoever rolled last
+  let who, tool = null, outcome = null;
+  if (finished) who = players.find(p => p.id === game.winner_id);
+  else if (game.turn_step === 1) { who = turnP; tool = game.pending_tool; }
+  else if (last) { who = players.find(p => p.id === last.player_id); tool = last.tool; outcome = last.outcome; }
+  else who = turnP;
+
+  $("win").hidden = !finished;
+  if (finished && who) $("winname").textContent = who.avatar + " " + who.nickname;
+  $("skip").hidden = game.phase !== "playing";
+
+  $("bname").textContent = who ? who.avatar + " " + who.nickname : "";
+  const hp = who ? Math.max(who.egg_hp ?? 0, 0) : 0;
+  const src = `../assets/eggsimg/egg_${stage(hp)}.PNG`;
+  if (!$("begg").src.endsWith(src.slice(2))) $("begg").src = src;
+  $("bhp").textContent = who ? hp + " HP" : "";
+  icons($("btool"), tool, outcome);
+
+  // Actual | Config rates (beer, miss and crit are counted over all rolls)
+  const n = rolls.length;
+  const pc = f => n ? Math.round(100 * rolls.filter(f).length / n) + "%" : "–";
+  $("bmode").textContent = MODES[game.gamemode];
+  $("rBeer").textContent = `${pc(r => r.tool === "beer")} | ${game.beer_rate}%`;
+  $("rMiss").textContent = `${pc(r => r.outcome === "miss")} | ${game.miss_rate}%`;
+  $("rCrit").textContent = `${pc(r => r.outcome === "crit")} | ${game.crit_rate}%`;
+  $("rCount").textContent = `Actual | Config · ${n} roll${n === 1 ? "" : "s"}`;
+
+  // Table: players in playing order, last completed round and the current one
+  const rounds = game.round_no > 1 ? [game.round_no - 1, game.round_no] : [1];
+  $("thr").replaceChildren(...["Name", "HP", ...rounds.map(r => "Round " + r)].map(t => { const th = document.createElement("th"); th.textContent = t; return th; }));
+  const tb = $("tbody"); tb.replaceChildren();
+  alive.forEach(p => {
+    const tr = document.createElement("tr"); if (who && p.id === who.id) tr.className = "hl";
+    const nm = document.createElement("td"), h = document.createElement("td");
+    nm.textContent = p.avatar + " " + p.nickname; h.textContent = p.egg_hp;
+    tr.append(nm, h);
+    rounds.forEach(r => {
+      const td = document.createElement("td"), x = rolls.find(q => q.player_id === p.id && q.round_no === r);
+      if (x) icons(td, x.tool, x.outcome);
+      else if (game.phase === "playing" && game.turn_step === 1 && p.turn_pos === game.turn_pos && r === game.round_no) icons(td, game.pending_tool, null);
+      tr.append(td);
+    });
+    tb.append(tr);
+  });
+  nameList($("grave"), players.filter(p => p.status === "eliminated"), "👻 ");
+  nameList($("spec"), players.filter(p => p.status === "spectator"), "");
+}
+$("begg").onerror = () => { $("begg").hidden = true; $("bfb").hidden = false; };
+$("begg").onload = () => { $("begg").hidden = false; $("bfb").hidden = true; };
+$("again").onclick = () => db.rpc("play_again", { p_pin: pin, p_game_id: game.id });
+$("skip").onclick = () => db.rpc("skip_turn", { p_pin: pin, p_game_id: game.id });
+
+/* ---------- Boot ---------- */
+if (!window.CTE || !window.supabase || !window.QRCode) {
+  document.body.textContent = "Could not load config.js (it must sit one folder above this page), the Supabase library or the QR library. Check the file locations and the internet connection.";
+  throw new Error("missing config or library");
+}
+db = supabase.createClient(window.CTE.url, window.CTE.key);
+$("unlock").onclick = () => unlock($("pinin").value);
+$("pinin").onkeydown = e => { if (e.key === "Enter") unlock($("pinin").value); };
+if (pin) unlock(pin).then(ok => { if (!ok) { sessionStorage.removeItem("cte_pin"); show("pin"); } }); else show("pin");
+</script>
+</body>
+</html>
